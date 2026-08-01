@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equipo Mia Calculator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; color: #111; min-height: 100vh; }
+  .app { max-width: 480px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 20px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tab { flex: 1; padding: 10px; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; background: #fff; color: #666; font-weight: 500; border: 1px solid #e5e5e5; transition: all 0.15s; }
+  .tab.active { background: #111; color: #fff; border-color: transparent; }
+
+  .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 1px solid #e5e5e5; }
+  .card-title { font-size: 13px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+
+  .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .month-nav button { background: none; border: 1px solid #e5e5e5; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 14px; color: #111; }
+  .month-title { font-size: 16px; font-weight: 600; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-header { text-align: center; font-size: 11px; color: #666; font-weight: 600; padding: 4px 0; }
+  .cal-day { aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.1s; }
+  .cal-day:hover:not(.empty):not(.weekend) { border-color: #ccc; background: #f9f9f9; }
+  .cal-day.empty { pointer-events: none; }
+  .cal-day.weekend { color: #bbb; pointer-events: none; }
+  .cal-day.today { font-weight: 700; border-color: #111 !important; }
+  .cal-day.has-entry { background: #f0f0f0; }
+  .dot-row { display: flex; gap: 2px; margin-top: 2px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+  .dot.half { background: #f59e0b; }
+  .dot.extra { background: #3b82f6; }
+  .dot.note { background: #10b981; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
+  .modal { background: #fff; border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+  .modal label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; margin-top: 12px; }
+  .modal input, .modal textarea, .modal select { width: 100%; padding: 10px 12px; border: 1px solid #e5e5e5; border-radius: 10px; font-size: 14px; background: #fff; color: #111; }
+  .modal textarea { resize: none; height: 72px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: #111; color: #fff; }
+  .btn-danger { background: #fee2e2; color: #dc2626; }
+  .btn-secondary { background: #f5f5f5; color: #111; }
+
+  .log-item { padding: 12px 0; border-bottom: 1px solid #e5e5e5; }
+  .log-item:last-child { border-bottom: none; }
+  .log-date { font-size: 13px; font-weight: 600; }
+  .log-tags { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .tag.half { background: #fef3c7; color: #92400e; }
+  .tag.extra { background: #dbeafe; color: #1e40af; }
+  .log-note { font-size: 12px; color: #666; margin-top: 4px; font-style: italic; }
+
+  .pay-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #e5e5e5; }
+  .pay-row:last-of-type { border-bottom: none; }
+  .pay-label { color: #666; }
+  .pay-val { font-weight: 600; }
+  .pay-val.neg { color: #dc2626; }
+  .pay-val.pos { color: #16a34a; }
+  .total-pay { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 2px solid #ddd; margin-top: 4px; }
+  .total-pay .label { font-size: 16px; font-weight: 600; }
+  .total-pay .val { font-size: 26px; font-weight: 700; }
+
+  .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .metric-box { background: #fff; border-radius: 12px; padding: 12px; text-align: center; border: 1px solid #e5e5e5; }
+  .metric-box .val { font-size: 20px; font-weight: 700; }
+  .metric-box .lbl { font-size: 11px; color: #666; margin-top: 2px; }
+
+  .empty-state { text-align: center; padding: 32px 16px; color: #666; font-size: 14px; }
+  .saving-indicator { font-size: 12px; color: #999; text-align: right; margin-bottom: 8px; min-height: 18px; }
+  .legend { font-size: 12px; color: #666; line-height: 2; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🌟 Equipo Mia Calculator</h1>
+  <p class="subtitle">Registro compartido de jornadas y pago mensual</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('calendar')">📅 Calendario</button>
+    <button class="tab" onclick="switchTab('log')">📋 Registro</button>
+    <button class="tab" onclick="switchTab('pay')">💰 Pago</button>
+  </div>
+
+  <div id="tab-calendar"></div>
+  <div id="tab-log" style="display:none"></div>
+  <div id="tab-pay" style="display:none"></div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" style="display:none" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <label>Tipo de jornada</label>
+    <select id="entry-type" onchange="updateExtraRow()">
+      <option value="normal">Jornada normal</option>
+      <option value="half">Media jornada</option>
+      <option value="extra">Día con horas extra</option>
+      <option value="friday_full">Viernes — jornada completa</option>
+      <option value="friday_half">Viernes — media jornada</option>
+    </select>
+    <div id="extra-hours-row" style="display:none">
+      <label>Horas extra trabajadas</label>
+      <input type="number" id="entry-extra" min="0.5" step="0.5" value="0">
+    </div>
+    <label>Nota (opcional)</label>
+    <textarea id="entry-note" placeholder="Ej. llegué tarde, salida antes..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteEntry()" style="display:none">Borrar</button>
+      <button class="btn btn-primary" onclick="saveEntry()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const CONFIG = {
+  base: 1200,
+  halfDayRate: 40,
+  fridayFullRate: 80,
+  fridayHalfRate: 40,
+  extraRateNormal: 10,
+  extraRateOT: 15,
+  extraOTThreshold: 3
+};
+
+// ── STATE ───────────────────────────────────────────────
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAYS_SHORT = ['L','M','X','J','V','S','D'];
+const STORAGE_KEY = 'equipo-mia-entries';
+
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth() + 1;
+let currentTab = 'calendar';
+let editingDate = null;
+let entries = {};
+let savingTimeout = null;
+
+// ── STORAGE (localStorage for standalone hosting) ───────
+function loadEntries() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) entries = JSON.parse(saved);
+  } catch(e) { entries = {}; }
+  render();
+}
+
+function saveEntries() {
+  showSaving('Guardando...');
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    showSaving('✓ Guardado');
+  } catch(e) { showSaving('Error al guardar'); }
+}
+
+function showSaving(msg) {
+  const el = document.getElementById('saving-msg');
+  if (el) {
+    el.textContent = msg;
+    clearTimeout(savingTimeout);
+    savingTimeout = setTimeout(() => { if(el) el.textContent = ''; }, 2000);
+  }
+}
+
+// ── HELPERS ─────────────────────────────────────────────
+function monThuCount(year, month) {
+  const days = new Date(year, month, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= days; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    if (dow >= 1 && dow <= 4) count++;
+  }
+  return count;
+}
+
+function dateKey(y, m, d) {
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function getDow(y, m, d) { return new Date(y, m - 1, d).getDay(); }
+function isWeekend(y, m, d) { const dow = getDow(y,m,d); return dow === 0 || dow === 6; }
+function isFriday(y, m, d) { return getDow(y,m,d) === 5; }
+
+function calcExtraCost(h) {
+  if (h <= CONFIG.extraOTThreshold) return h * CONFIG.extraRateNormal;
+  return CONFIG.extraOTThreshold * CONFIG.extraRateNormal + (h - CONFIG.extraOTThreshold) * CONFIG.extraRateOT;
+}
+
+function fmt(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ── TABS ────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  ['calendar','log','pay'].forEach((t, i) => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+    document.querySelectorAll('.tab')[i].classList.toggle('active', t === tab);
+  });
+  render();
+}
+
+function render() {
+  if (currentTab === 'calendar') renderCalendar();
+  else if (currentTab === 'log') renderLog();
+  else renderPay();
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+  if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+  render();
+}
+
+// ── CALENDAR ────────────────────────────────────────────
+function renderCalendar() {
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const firstDow = new Date(currentYear, currentMonth - 1, 1).getDay();
+  const offset = (firstDow + 6) % 7;
+  const today = new Date();
+
+  let html = `<div class="saving-indicator" id="saving-msg"></div>
+  <div class="card">
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">‹</button>
+      <span class="month-title">${MONTHS[currentMonth-1]} ${currentYear}</span>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="cal-grid">
+      ${DAYS_SHORT.map(d => `<div class="cal-header">${d}</div>`).join('')}
+      ${Array(offset).fill('<div class="cal-day empty"></div>').join('')}`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = dateKey(currentYear, currentMonth, d);
+    const entry = entries[key];
+    const isToday = today.getFullYear() === currentYear && today.getMonth()+1 === currentMonth && today.getDate() === d;
+    const weekend = isWeekend(currentYear, currentMonth, d);
+    const friday = isFriday(currentYear, currentMonth, d);
+
+    let dots = '';
+    if (entry) {
+      if (entry.type === 'half' || entry.type === 'friday_half') dots += '<span class="dot half"></span>';
+      if (entry.extraHours > 0) dots += '<span class="dot extra"></span>';
+      if (entry.note) dots += '<span class="dot note"></span>';
+    }
+
+    html += `<div class="cal-day ${weekend?'weekend':''} ${isToday?'today':''} ${entry?'has-entry':''}"
+      onclick="${weekend ? '' : `openDay(${d})`}">
+      <span>${d}</span>
+      ${friday && !weekend ? '<span style="font-size:8px;color:#f59e0b;">V</span>' : ''}
+      ${dots ? `<div class="dot-row">${dots}</div>` : ''}
+    </div>`;
+  }
+
+  html += `</div></div>
+  <div class="card legend">
+    <span><span class="dot half"></span> Media jornada</span>
+    <span><span class="dot extra"></span> Horas extra</span>
+    <span><span class="dot note"></span> Nota</span>
+  </div>`;
+
+  document.getElementById('tab-calendar').innerHTML = html;
+}
+
+// ── LOG ─────────────────────────────────────────────────
+function renderLog() {
+  const prefix = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+  const monthEntries = Object.entries(entries)
+    .filter(([k]) => k.startsWith(prefix))
+    .sort(([a],[b]) => a.localeCompare(b));
+
+  const typeLabels = { normal:'Jornada normal', half:'Media jornada', extra:'Horas extra', friday_full:'Viernes completo', friday_half:'Viernes media jornada' };
+  const typeClass  = { normal:'', half:'half', extra:'extra', friday_full:'extra', friday_half:'half' };
+
+  let html = `<div class="saving-indicator" id="saving-msg"></div>`;
+
+  if (!monthEntries.length) {
+    html += `<div class="empty-state">No hay registros para ${MONTHS[currentMonth-1]}.<br>Toca un día en el calendario para añadir.</div>`;
+  } else {
+    html += `<div class="card"><div class="card-title">Registro — ${MONTHS[currentMonth-1]} ${currentYear}</div>`;
+    monthEntries.forEach(([key, entry]) => {
+      const [y,m,d] = key.split('-');
+      const dow = new Date(parseInt(y), parseInt(m)-1, parseInt(d)).getDay();
+      const dayName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][dow];
+      html += `<div class="log-item">
+        <div class="log-date">${dayName} ${parseInt(d)} de ${MONTHS[parseInt(m)-1]}</div>
+        <div class="log-tags">
+          <span class="tag ${typeClass[entry.type]}">${typeLabels[entry.type]}</span>
+          ${entry.extraHours > 0 ? `<span class="tag extra">+${entry.extraHours}h extra</span>` : ''}
+        </div>
+        ${entry.note ? `<div class="log-note">"${entry.note}"</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  document.getElementById('tab-log').innerHTML = html;
+}
+
+// ── PAY ─────────────────────────────────────────────────
+function renderPay() {
+  const prefix = `${currentYear}-${String(currentMonth).padStart(2,'0')}`;
+  const workingDays = monThuCount(currentYear, currentMonth);
+
+  let halfCount=0, fridayFullCount=0, fridayHalfCount=0;
+  let halfDeduct=0, fridayFullAdd=0, fridayHalfAdd=0, extraAdd=0;
+  let extraDetails = [];
+
+  Object.entries(entries).filter(([k]) => k.startsWith(prefix)).forEach(([key, entry]) => {
+    if (entry.type === 'half')         { halfDeduct     += CONFIG.halfDayRate;    halfCount++; }
+    if (entry.type === 'friday_full')  { fridayFullAdd  += CONFIG.fridayFullRate; fridayFullCount++; }
+    if (entry.type === 'friday_half')  { fridayHalfAdd  += CONFIG.fridayHalfRate; fridayHalfCount++; }
+    if (entry.extraHours > 0) {
+      const cost = calcExtraCost(entry.extraHours);
+      extraAdd += cost;
+      extraDetails.push({ key, hours: entry.extraHours, cost });
+    }
+  });
+
+  const total = CONFIG.base - halfDeduct + fridayFullAdd + fridayHalfAdd + extraAdd;
+
+  const extraRows = extraDetails.map(e => {
+    const [y,m,d] = e.key.split('-');
+    return `<div class="pay-row"><span class="pay-label">Horas extra ${parseInt(d)}/${parseInt(m)} (${e.hours}h)</span><span class="pay-val pos">+${fmt(e.cost)}</span></div>`;
+  }).join('');
+
+  document.getElementById('tab-pay').innerHTML = `
+    <div class="saving-indicator" id="saving-msg"></div>
+    <div class="metrics-row">
+      <div class="metric-box"><div class="val">${workingDays}</div><div class="lbl">Días lun–jue</div></div>
+      <div class="metric-box"><div class="val">${halfCount}</div><div class="lbl">Medias jornadas</div></div>
+      <div class="metric-box"><div class="val">${extraDetails.length}</div><div class="lbl">Días con extra</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Desglose — ${MONTHS[currentMonth-1]} ${currentYear}</div>
+      <div class="pay-row"><span class="pay-label">Sueldo base mensual</span><span class="pay-val">${fmt(CONFIG.base)}</span></div>
+      ${halfCount > 0 ? `<div class="pay-row"><span class="pay-label">Medias jornadas (${halfCount} × −${fmt(CONFIG.halfDayRate)})</span><span class="pay-val neg">−${fmt(halfDeduct)}</span></div>` : ''}
+      ${fridayFullCount > 0 ? `<div class="pay-row"><span class="pay-label">Viernes completo (${fridayFullCount} × ${fmt(CONFIG.fridayFullRate)})</span><span class="pay-val pos">+${fmt(fridayFullAdd)}</span></div>` : ''}
+      ${fridayHalfCount > 0 ? `<div class="pay-row"><span class="pay-label">Viernes media jornada (${fridayHalfCount} × ${fmt(CONFIG.fridayHalfRate)})</span><span class="pay-val pos">+${fmt(fridayHalfAdd)}</span></div>` : ''}
+      ${extraRows}
+      <div class="total-pay"><span class="label">Total a pagar</span><span class="val">${fmt(total)}</span></div>
+    </div>
+    <div class="card" style="font-size:13px;color:#666;line-height:1.8;">
+      <b>Tarifas configuradas:</b><br>
+      Base mensual: ${fmt(CONFIG.base)} · Media jornada: −${fmt(CONFIG.halfDayRate)}<br>
+      Viernes completo: +${fmt(CONFIG.fridayFullRate)} · Viernes media: +${fmt(CONFIG.fridayHalfRate)}<br>
+      Hora extra: $${CONFIG.extraRateNormal} (primeras ${CONFIG.extraOTThreshold}h) · $${CONFIG.extraRateOT} (a partir de ${CONFIG.extraOTThreshold}h)
+    </div>`;
+}
+
+// ── MODAL ───────────────────────────────────────────────
+function openDay(d) {
+  const key = dateKey(currentYear, currentMonth, d);
+  editingDate = key;
+  const entry = entries[key];
+  const friday = isFriday(currentYear, currentMonth, d);
+  const [y,m,day] = key.split('-');
+  const dow = new Date(parseInt(y), parseInt(m)-1, parseInt(day)).getDay();
+  const dayName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][dow];
+
+  document.getElementById('modal-title').textContent = `${dayName} ${parseInt(day)} de ${MONTHS[parseInt(m)-1]}`;
+  document.getElementById('entry-type').value = entry ? entry.type : (friday ? 'friday_full' : 'normal');
+  document.getElementById('entry-extra').value = entry ? entry.extraHours : 0;
+  document.getElementById('entry-note').value = entry ? entry.note : '';
+  document.getElementById('btn-delete').style.display = entry ? 'block' : 'none';
+  updateExtraRow();
+  document.getElementById('overlay').style.display = 'flex';
+}
+
+function updateExtraRow() {
+  document.getElementById('extra-hours-row').style.display =
+    document.getElementById('entry-type').value === 'extra' ? 'block' : 'none';
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('overlay')) {
+    document.getElementById('overlay').style.display = 'none';
+    editingDate = null;
+  }
+}
+
+function saveEntry() {
+  const type = document.getElementById('entry-type').value;
+  const extraHours = parseFloat(document.getElementById('entry-extra').value) || 0;
+  const note = document.getElementById('entry-note').value.trim();
+  if (type === 'normal' && extraHours === 0 && !note) {
+    delete entries[editingDate];
+  } else {
+    entries[editingDate] = { type, extraHours: type === 'extra' ? extraHours : 0, note };
+  }
+  saveEntries();
+  closeModal();
+  render();
+}
+
+function deleteEntry() {
+  delete entries[editingDate];
+  saveEntries();
+  closeModal();
+  render();
+}
+
+// ── INIT ────────────────────────────────────────────────
+loadEntries();
+</script>
+</body>
+</html>
